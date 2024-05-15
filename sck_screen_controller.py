@@ -1,48 +1,67 @@
-import shutil
 import sys
 import os
-import json
-import traceback
+import pickle
 import argparse
 import time
-from datetime import datetime
 from enum import Enum, auto
 from PyQt5 import QtCore, QtWidgets, QtGui
-from PyQt5.QtCore import pyqtSignal as QSignal, QObject
-from PyQt5.QtCore import QSize, QPoint
-from PyQt5.QtGui import QScreen, QPixmap
-from PyQt5.QtWidgets import QApplication, QGraphicsScene, QGraphicsPixmapItem, QLabel, QWidget
+from PyQt5.QtCore import pyqtSignal as QSignal
+from PyQt5.QtCore import QSize, QPoint, Qt
+from PyQt5.QtGui import QScreen, QPixmap, QPalette, QBrush
+from PyQt5.QtWidgets import QApplication, QGraphicsScene, QGraphicsPixmapItem, QLabel, QWidget, QFileDialog
 
-from ui.generated_display import Ui_MainWindow as DisplayWindow
-from ui.generated_control import Ui_ControlWidget as ControlWindow
-
-APP_DATA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "app_data.json"))
+from ui.generated_display import Ui_Display
+from ui.generated_control import Ui_ControlWindow
 
 
 def is_exe():
     return getattr(sys, 'frozen', False)
 
 
-def create_default_app_data():
-    default_app_data = {
-        "dummy": 0
-    }
-    with open(APP_DATA_PATH, "w") as f:
-        json.dump(default_app_data, f, indent=4)
+class AppData:
+    class Display:
+        def __init__(self):
+            self.x = 0
+            self.y = 0
+
+    class Emblem:
+        def __init__(self):
+            self.home = "static/wappen_sck.png"
+            self.guest = "static/wappen_jechtingen.jpg"
+
+    def __init__(self):
+        self.display = self.Display()
+        self.emblem = self.Emblem()
 
 
-def get_app_data_attribute(key: str):
-    with open(APP_DATA_PATH, "r") as f:
-        app_data = json.load(f)
-        return app_data[key]
+class AppDataHandler:
+    DEFAULT_APP_DATA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "app_data.pkl"))
 
+    def __init__(self, app_data_path: str or None = None):
+        if app_data_path is None:
+            self.app_data_path = self.DEFAULT_APP_DATA_PATH
+        else:
+            self.app_data_path = app_data_path
 
-def set_app_data_attribute(key: str, value):
-    with open(APP_DATA_PATH, "r") as f:
-        app_data = json.load(f)
-        app_data[key] = value
-    with open(APP_DATA_PATH, "w") as f:
-        json.dump(app_data, f, indent=4)
+        if not os.path.exists(self.app_data_path):
+            self._create_default_app_data()
+
+        self._load_app_data()
+
+    def _create_default_app_data(self):
+        default_app_data = AppData()
+        with open(self.app_data_path, "wb") as f:
+            pickle.dump(default_app_data, f)
+
+    def _load_app_data(self):
+        with open(self.app_data_path, "rb") as f:
+            self.app_data = pickle.load(f)
+        print("loaded app data")
+
+    def store_app_data(self):
+        with open(self.app_data_path, "wb") as f:
+            pickle.dump(self.app_data, f)
+        print("Stored app data")
 
 
 class WorkerTimeSignals:
@@ -52,7 +71,6 @@ class WorkerTimeSignals:
 
 
 class WorkerTime(QtCore.QRunnable):
-
     class Status(Enum):
         PAUSED = auto()
         RUNNING = auto()
@@ -62,10 +80,11 @@ class WorkerTime(QtCore.QRunnable):
         self.signals = signals
         self.time_label: QLabel = time_label
         self.status = self.Status.PAUSED
-        self.time_elapsed = 0
+        self.seconds_elapsed = 0
+        self.is_second_half: bool = False
 
     def reset(self):
-        self.time_elapsed = 0
+        self.seconds_elapsed = 0
         self._set_new_time()
 
     def resume(self):
@@ -76,140 +95,106 @@ class WorkerTime(QtCore.QRunnable):
         self.status = self.Status.PAUSED
         print("pause")
 
+    def set_elapsed_time(self, minutes: int, seconds: int):
+        self.seconds_elapsed = minutes * 60 + seconds
+        if minutes <= 45:
+            self.is_second_half = False
+        else:
+            self.is_second_half = True
+        self._set_new_time()
+
     def _set_new_time(self):
-        minutes = int(self.time_elapsed // 60)
-        seconds = int(self.time_elapsed) % 60
+        minutes = int(self.seconds_elapsed // 60)
+        seconds = int(self.seconds_elapsed) % 60
         formatted_time = f"{minutes:02}:{seconds:02}"
         self.time_label.setText(formatted_time)
+
+    def handle_auto_stop(self):
+        if self.is_second_half:
+            if self.seconds_elapsed >= 90*60:
+                print("Auto stop second half")
+                self.pause()
+        else:
+            if self.seconds_elapsed >= 45*60:
+                print("Auto stop first half")
+                self.pause()
+                self.is_second_half = True
 
     def run(self):
         while True:
             t_start = time.time()
             time.sleep(0.1)
             if self.status == self.Status.RUNNING:
-                self.time_elapsed += time.time() - t_start
+                self.seconds_elapsed += time.time() - t_start
+                self.handle_auto_stop()
                 self._set_new_time()
+
             elif self.status == self.Status.PAUSED:
                 pass
 
 
 
 
-class WorkerSignals(QtCore.QObject):
-    finished: QSignal = QSignal()
-    error: QSignal = QSignal(tuple)
-    result: QSignal = QSignal(object)
-    progress: QSignal = QSignal(int)
+class DisplayWindow(QWidget, Ui_Display):
 
-
-class Worker(QtCore.QRunnable):
-    def __init__(self, fn, signals, *args, **kwargs):
-        super(Worker, self).__init__()
-
-        self.fn = fn
-        self.args = args
-        self.kwargs = kwargs
-        self.signals = signals
-        self.setAutoDelete(True)
-
-    def run(self):
-        try:
-            result = self.fn(*self.args, **self.kwargs)
-        except:
-            traceback.print_exc()
-            exctype, value = sys.exc_info()[:2]
-            self.signals.error.emit((exctype, value, traceback.format_exc()))
-        else:
-            self.signals.result.emit(result)  # Return the result of the processing
-        finally:
-            self.signals.finished.emit()  # Done
-
-
-class MainDisplayWindow(QtWidgets.QMainWindow, DisplayWindow):
-
-    worker_time_signals = WorkerTimeSignals()
-
-    def __init__(self, application: QtWidgets.QApplication, parsed_args):
+    def __init__(self, screen: QScreen, app_data_handler: AppDataHandler):
         super().__init__()
-        self.application = application
-        self.parsed_args = parsed_args
-        self.is_exe = is_exe()
         self.setupUi(self)
+        self.app_data_handler: AppDataHandler = app_data_handler
+        self.app_data: AppData = self.app_data_handler.app_data
+        self.screen: QScreen = screen
 
         # constants
         self.background_color = "black"
         self.text_color = "white"
 
-        # variables
+        # get original position and width data
+        self.graphic_wappen_heim_geometry = self.graphic_wappen_heim.geometry()
+        self.graphic_wappen_gast_geometry = self.graphic_wappen_gast.geometry()
 
-        self.screen: QScreen = self.application.primaryScreen()
-        self.original_window_geometry = self.size()
-
-        self.window_position_on_screen: QPoint = QPoint(0, 0)
-        self.window_width_on_screen: QSize = QSize(0, 0)
-        self.window_scaling_factor: tuple[float, float] = (1.0, 1.0)
-
-        self.scale_window_on_screen()
         self.set_window_properties()
+        self.set_background_image()
+        self.init_from_app_data()
 
-        self.set_home_image(image_path=r"C:\Users\spricfl\Desktop\home.png")
-        self.set_gast_image(image_path=r"C:\Users\spricfl\Desktop\gast.jpg")
+    def init_from_app_data(self):
+        for path, function in zip([self.app_data.emblem.home, self.app_data.emblem.guest], [self.set_home_image, self.set_guest_image]):
+            if isinstance(path, str) and os.path.exists(path):
+                function(path)
 
-        if not os.path.exists(APP_DATA_PATH):
-            create_default_app_data()
-            print("Created default app data")
-        else:
-            print("Loaded app data")
-
-        # other stuff
-        self.threadPool = QtCore.QThreadPool()
-        self.worker_time = WorkerTime(time_label=self.label_time, signals=self.worker_time_signals)
-        self.threadPool.start(self.worker_time)
-
-        # objects
-        self.control_window = MainControlWindow(self)
-        self.control_window.show()
-
-
-
-    def scale_window_on_screen(self):
-        self.window_position_on_screen = QPoint(int(self.screen.size().width() * self.parsed_args.x),
-                                                int(self.screen.size().height() * self.parsed_args.y))
-        self.window_width_on_screen = QSize(int(self.screen.size().width() * self.parsed_args.w),
-                                            int(self.screen.size().height() * self.parsed_args.h)
-                                            )
-
-        self.window_scaling_factor = (
-            self.window_width_on_screen.width() / self.original_window_geometry.width(),
-            self.window_width_on_screen.height() / self.original_window_geometry.height()
-        )
-
-        self.move(self.window_position_on_screen)
-        self._set_window_size()
-
-    def _set_window_size(self):
-        self.setFixedSize(self.window_width_on_screen)
+    def window_position_changed(self):
+        self.move(QPoint(self.app_data.display.x, self.app_data.display.y))
 
     def set_window_properties(self):
-        # Remove the window title bar to prevent dragging
-        self.setWindowFlags(self.windowFlags() | QtCore.Qt.FramelessWindowHint)
-        # Set the window to be always on top
-        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
-
-        self.setStyleSheet(f"background-color: {self.background_color};")
+        self.setWindowFlags(self.windowFlags() | Qt.FramelessWindowHint)  # no window title
+        self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)  # always on top
 
         text_properties = [self.label_spielstand_heim,
                            self.label_spielstand_gast,
                            self.label_time,
-                           self.label_versus,
-                           self.label_spielstand_doppelpunkt]
+                           self.label_spielstand_doppelpunkt,
+                           self.graphic_wappen_gast,
+                           self.graphic_wappen_heim]
 
-        [self._set_text_properties(item=item) for item in text_properties]
+        [self._set_item_properties(item=item) for item in text_properties]
 
-    def _set_text_properties(self, item):
-        item.setStyleSheet(f"background-color: {self.background_color}; color: {self.text_color};")
+    def _set_item_properties(self, item):
+        stylesheet = f"""
+            background: transparent;
+            color: {self.text_color};
+        """
 
-    def set_image(self, graphics_object, image_path: str):
+        item.setStyleSheet(stylesheet)
+
+    def set_background_image(self):
+        background_path = os.path.abspath("static/hintergrund_1.jpg")
+        image_pixmap = QPixmap(background_path)
+        scaled_pixmap = image_pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+
+        palette = QPalette()
+        palette.setBrush(QPalette.Window, QBrush(scaled_pixmap))
+        self.setPalette(palette)
+
+    def _set_image(self, graphics_object, image_path: str):
         scene = QGraphicsScene()
         pixmap = QPixmap(image_path)
         pixmap_item = QGraphicsPixmapItem(pixmap)
@@ -218,29 +203,116 @@ class MainDisplayWindow(QtWidgets.QMainWindow, DisplayWindow):
         graphics_object.fitInView(scene.sceneRect())
 
     def set_home_image(self, image_path: str):
-        self.set_image(graphics_object=self.graphic_wappen_heim, image_path=image_path)
+        self._set_image(graphics_object=self.graphic_wappen_heim, image_path=image_path)
 
-    def set_gast_image(self, image_path: str):
-        self.set_image(graphics_object=self.graphic_wappen_gast, image_path=image_path)
-
-    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
-        pass
-
-    def _on_action_exit(self):
-        self.close()
+    def set_guest_image(self, image_path: str):
+        self._set_image(graphics_object=self.graphic_wappen_gast, image_path=image_path)
 
 
-class MainControlWindow(QWidget, ControlWindow):
-    def __init__(self, display_window: MainDisplayWindow):
+class MainControlWindow(QtWidgets.QMainWindow, Ui_ControlWindow):
+    worker_time_signals = WorkerTimeSignals()
+
+    def __init__(self, application: QtWidgets.QApplication, parsed_args):
         super().__init__()
         self.setupUi(self)
+        self.application = application
+        self.parsed_args = parsed_args
+        self.is_exe = is_exe()
 
-        self.display_window = display_window
+        self.app_data_handler: AppDataHandler = AppDataHandler()
+        self.app_data: AppData = self.app_data_handler.app_data
+        self.init_from_app_data()
 
-        self.button_time_start.pressed.connect(self.display_window.worker_time.resume)
-        self.button_time_pause.pressed.connect(self.display_window.worker_time.pause)
-        self.button_time_reset.pressed.connect(self.display_window.worker_time.reset)
+        # objects
+        self.display_window = DisplayWindow(app_data_handler=self.app_data_handler,
+                                            screen=self.application.primaryScreen())
 
+        self.display_window.show()
+
+        # threads
+        self.threadPool = QtCore.QThreadPool()
+        self.worker_time = WorkerTime(time_label=self.display_window.label_time, signals=self.worker_time_signals)
+        self.threadPool.start(self.worker_time)
+
+        for item in [self.line_edit_display_pos_x, self.line_edit_display_pos_y]:
+            item.textChanged.connect(self.display_position_edited)
+
+        self.button_time_start.pressed.connect(self.worker_time.resume)
+        self.button_time_pause.pressed.connect(self.worker_time.pause)
+        self.button_time_reset.pressed.connect(self.worker_time.reset)
+        self.button_time_manual.pressed.connect(self.set_elapsed_time)
+
+        self.button_score_home_plus.pressed.connect(lambda: self.button_score_home_clicked(True))
+        self.button_score_home_minus.pressed.connect(lambda: self.button_score_home_clicked(False))
+
+        self.button_score_guest_plus.pressed.connect(lambda: self.button_score_guest_clicked(True))
+        self.button_score_guest_minus.pressed.connect(lambda: self.button_score_guest_clicked(False))
+
+        self.button_select_emblem_home.pressed.connect(self.button_select_emblem_home_clicked)
+        self.button_select_emblem_guest.pressed.connect(self.button_select_emblem_guest_clicked)
+
+        self.display_position_edited()
+
+    def init_from_app_data(self):
+        self.line_edit_display_pos_x.setText(str(self.app_data_handler.app_data.display.x))
+        self.line_edit_display_pos_y.setText(str(self.app_data_handler.app_data.display.y))
+
+    # CALLBACK FUNCTIONS #
+
+    def display_position_edited(self):
+        try:
+            self.app_data_handler.app_data.display.x = int(self.line_edit_display_pos_x.text())
+            self.app_data_handler.app_data.display.y = int(self.line_edit_display_pos_y.text())
+            self.app_data_handler.store_app_data()
+            self.display_window.window_position_changed()
+        except:
+            pass
+
+    def _handle_score_click(self, item: QLabel, is_plus: bool):
+        score = int(item.text())
+        if is_plus:
+            score += 1
+        else:
+            score -= 1
+
+        score = max(score, 0)
+
+        item.setText(str(score))
+
+    def button_score_home_clicked(self, is_plus: bool):
+        self._handle_score_click(item=self.display_window.label_spielstand_heim, is_plus=is_plus)
+
+    def button_score_guest_clicked(self, is_plus: bool):
+        self._handle_score_click(item=self.display_window.label_spielstand_gast, is_plus=is_plus)
+
+
+    def button_select_emblem_home_clicked(self):
+        file_path = self.openFileDialog()
+        if file_path:
+            self.app_data.emblem.home = file_path
+            self.display_window.set_home_image(image_path=self.app_data.emblem.home)
+            self.app_data_handler.store_app_data()
+
+
+    def button_select_emblem_guest_clicked(self):
+        file_path = self.openFileDialog()
+        if file_path:
+            self.app_data.emblem.guest = file_path
+            self.display_window.set_guest_image(image_path=self.app_data.emblem.guest)
+            self.app_data_handler.store_app_data()
+
+
+    def set_elapsed_time(self):
+        minutes = int(self.line_edit_time_manual_minutes.text())
+        seconds = int(self.line_edit_time_manual_seconds.text())
+        self.worker_time.set_elapsed_time(minutes=minutes, seconds=seconds)
+
+
+    def openFileDialog(self):
+        options = QFileDialog.Options()
+        options |= QFileDialog.ReadOnly
+        file_path, _ = QFileDialog.getOpenFileName(self, "Bilddatei auswählen", "", "All Files (*);", options=options)
+        return file_path
 
 
 
@@ -248,13 +320,9 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     parser = argparse.ArgumentParser(prog='SCK Anzeigetafel', description='Tool für SCK Anzeigetafel')
-    parser.add_argument("--x", dest="x", help="x-position Anzeige 0.0 - 1.0", default=0.5, type=float)
-    parser.add_argument("--y", dest="y", help="y-position Anzeige 0.0 - 1.0", default=0.5, type=float)
-    parser.add_argument("--w", dest="w", help="w-position Anzeige 0.0 - 1.0", default=0.5, type=float)
-    parser.add_argument("--h", dest="h", help="h-position Anzeige 0.0 - 1.0", default=0.5, type=float)
     args = parser.parse_known_args()[0]
 
-    w_display = MainDisplayWindow(application=app, parsed_args=args)
+    w_display = MainControlWindow(application=app, parsed_args=args)
     w_display.show()
 
     app.exec()
