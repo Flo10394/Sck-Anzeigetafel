@@ -13,7 +13,7 @@ added_files = [ ]
 added_binaries = [ ]
 
 a = Analysis(
-    ['sck_screen.py'],
+    ['sck_screen_controller.py'],
     pathex=['./../..'],
     binaries=added_binaries,
     datas=added_files,

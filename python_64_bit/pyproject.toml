@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "sckanzeigetafel"
+version = "0.1.0"
+description = ""
+authors = ["Florian Sprich <florian.sprich@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "~3.12"
+pyinstaller = "6.5.0"
+pyinstaller-versionfile = "^2.1.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
