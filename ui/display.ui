@@ -65,9 +65,9 @@
    <property name="geometry">
     <rect>
      <x>130</x>
-     <y>60</y>
+     <y>70</y>
      <width>51</width>
-     <height>31</height>
+     <height>21</height>
     </rect>
    </property>
    <property name="sizePolicy">
@@ -78,7 +78,7 @@
    </property>
    <property name="font">
     <font>
-     <pointsize>10</pointsize>
+     <pointsize>16</pointsize>
     </font>
    </property>
    <property name="text">
@@ -128,9 +128,9 @@
    <property name="geometry">
     <rect>
      <x>60</x>
-     <y>60</y>
+     <y>70</y>
      <width>71</width>
-     <height>31</height>
+     <height>21</height>
     </rect>
    </property>
    <property name="sizePolicy">
@@ -141,7 +141,7 @@
    </property>
    <property name="font">
     <font>
-     <pointsize>10</pointsize>
+     <pointsize>16</pointsize>
     </font>
    </property>
    <property name="lineWidth">
@@ -158,9 +158,9 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>90</y>
+     <y>102</y>
      <width>171</width>
-     <height>31</height>
+     <height>20</height>
     </rect>
    </property>
    <property name="sizePolicy">
@@ -171,7 +171,7 @@
    </property>
    <property name="font">
     <font>
-     <pointsize>10</pointsize>
+     <pointsize>12</pointsize>
     </font>
    </property>
    <property name="text">
@@ -185,9 +185,9 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>60</y>
+     <y>70</y>
      <width>51</width>
-     <height>31</height>
+     <height>21</height>
     </rect>
    </property>
    <property name="sizePolicy">
@@ -198,7 +198,7 @@
    </property>
    <property name="font">
     <font>
-     <pointsize>10</pointsize>
+     <pointsize>16</pointsize>
     </font>
    </property>
    <property name="text">

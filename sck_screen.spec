@@ -9,7 +9,7 @@ site_packages = os.path.join(os.path.dirname(python_interpreter), "..", "Lib", "
 block_cipher = None
 
 
-added_files = [ ]
+added_files = [('static/background.jpg', './static'), ('static/wappen_sck.png', './static') ]
 added_binaries = [ ]
 
 a = Analysis(
@@ -40,12 +40,8 @@ exe = EXE(
     strip=False,
     upx=True,
     console=False,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-    version='gen_version_info.txt'
+    version='gen_version_info.txt',
+    icon='static/wappen_sck.ico'
 )
 coll = COLLECT(
     exe,

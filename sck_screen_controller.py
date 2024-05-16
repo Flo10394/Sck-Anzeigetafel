@@ -7,7 +7,7 @@ from enum import Enum, auto
 from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtCore import pyqtSignal as QSignal
 from PyQt5.QtCore import QSize, QPoint, Qt
-from PyQt5.QtGui import QScreen, QPixmap, QPalette, QBrush
+from PyQt5.QtGui import QScreen, QPixmap, QPalette, QBrush, QIcon
 from PyQt5.QtWidgets import QApplication, QGraphicsScene, QGraphicsPixmapItem, QLabel, QWidget, QFileDialog
 
 from ui.generated_display import Ui_Display
@@ -29,9 +29,11 @@ class AppData:
             self.home = "static/wappen_sck.png"
             self.guest = "static/wappen_jechtingen.jpg"
 
+
     def __init__(self):
         self.display = self.Display()
         self.emblem = self.Emblem()
+        self.background_image = "static/background.jpg"
 
 
 class AppDataHandler:
@@ -82,6 +84,7 @@ class WorkerTime(QtCore.QRunnable):
         self.status = self.Status.PAUSED
         self.seconds_elapsed = 0
         self.is_second_half: bool = False
+        self.setAutoDelete(True)
 
     def reset(self):
         self.seconds_elapsed = 0
@@ -153,13 +156,14 @@ class DisplayWindow(QWidget, Ui_Display):
         self.graphic_wappen_gast_geometry = self.graphic_wappen_gast.geometry()
 
         self.set_window_properties()
-        self.set_background_image()
         self.init_from_app_data()
 
     def init_from_app_data(self):
         for path, function in zip([self.app_data.emblem.home, self.app_data.emblem.guest], [self.set_home_image, self.set_guest_image]):
             if isinstance(path, str) and os.path.exists(path):
                 function(path)
+
+        self.set_background_image(self.app_data.background_image)
 
     def window_position_changed(self):
         self.move(QPoint(self.app_data.display.x, self.app_data.display.y))
@@ -185,8 +189,9 @@ class DisplayWindow(QWidget, Ui_Display):
 
         item.setStyleSheet(stylesheet)
 
-    def set_background_image(self):
-        background_path = os.path.abspath("static/hintergrund_1.jpg")
+    def set_background_image(self, path: str):
+        background_path = os.path.abspath(path)
+        print(f"background image: {background_path}")
         image_pixmap = QPixmap(background_path)
         scaled_pixmap = image_pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
 
@@ -208,6 +213,14 @@ class DisplayWindow(QWidget, Ui_Display):
     def set_guest_image(self, image_path: str):
         self._set_image(graphics_object=self.graphic_wappen_gast, image_path=image_path)
 
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        self.close()
+        QApplication.quit()
+
+    def close(self):
+        # Proper cleanup
+        QApplication.quit()
+
 
 class MainControlWindow(QtWidgets.QMainWindow, Ui_ControlWindow):
     worker_time_signals = WorkerTimeSignals()
@@ -215,6 +228,8 @@ class MainControlWindow(QtWidgets.QMainWindow, Ui_ControlWindow):
     def __init__(self, application: QtWidgets.QApplication, parsed_args):
         super().__init__()
         self.setupUi(self)
+        if is_exe():
+            os.chdir("_internal")
         self.application = application
         self.parsed_args = parsed_args
         self.is_exe = is_exe()
@@ -222,6 +237,8 @@ class MainControlWindow(QtWidgets.QMainWindow, Ui_ControlWindow):
         self.app_data_handler: AppDataHandler = AppDataHandler()
         self.app_data: AppData = self.app_data_handler.app_data
         self.init_from_app_data()
+
+        self.setWindowIcon(QIcon('static/wappen_sck.ico'))
 
         # objects
         self.display_window = DisplayWindow(app_data_handler=self.app_data_handler,
@@ -250,6 +267,8 @@ class MainControlWindow(QtWidgets.QMainWindow, Ui_ControlWindow):
 
         self.button_select_emblem_home.pressed.connect(self.button_select_emblem_home_clicked)
         self.button_select_emblem_guest.pressed.connect(self.button_select_emblem_guest_clicked)
+
+        self.button_select_background.pressed.connect(self.button_select_background_clicked)
 
         self.display_position_edited()
 
@@ -301,6 +320,12 @@ class MainControlWindow(QtWidgets.QMainWindow, Ui_ControlWindow):
             self.display_window.set_guest_image(image_path=self.app_data.emblem.guest)
             self.app_data_handler.store_app_data()
 
+    def button_select_background_clicked(self):
+        file_path = self.openFileDialog()
+        if file_path:
+            self.app_data.background_image = file_path
+            self.display_window.set_background_image(path=self.app_data.background_image)
+            self.app_data_handler.store_app_data()
 
     def set_elapsed_time(self):
         minutes = int(self.line_edit_time_manual_minutes.text())
@@ -314,6 +339,20 @@ class MainControlWindow(QtWidgets.QMainWindow, Ui_ControlWindow):
         file_path, _ = QFileDialog.getOpenFileName(self, "Bilddatei auswählen", "", "All Files (*);", options=options)
         return file_path
 
+
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        self.display_window.close()
+        self.application.closeAllWindows()
+        self.application.exit()
+        self.application.quit()
+        QApplication.quit()
+        self.threadPool.cancel(self.worker_time)
+        self.threadPool.clear()
+
+    def close(self):
+        # Proper cleanup
+        self.threadpool.clear()
+        QApplication.quit()
 
 
 if __name__ == "__main__":
