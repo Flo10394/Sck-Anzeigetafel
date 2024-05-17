@@ -9,7 +9,7 @@ site_packages = os.path.join(os.path.dirname(python_interpreter), "..", "Lib", "
 block_cipher = None
 
 
-added_files = [('static/background.jpg', './static'), ('static/background_2.jpg', './static'), ('static/wappen_sck.png', './static') ]
+added_files = [('static', 'static')]
 added_binaries = [ ]
 
 a = Analysis(
@@ -17,7 +17,7 @@ a = Analysis(
     pathex=['./../..'],
     binaries=added_binaries,
     datas=added_files,
-    hiddenimports=[],
+    hiddenimports=['engineio.async_drivers.threading'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -39,7 +39,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=False,
+    console=True,
     version='gen_version_info.txt',
     icon='static/wappen_sck.ico'
 )

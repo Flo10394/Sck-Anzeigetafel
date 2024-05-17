@@ -1,3 +1,4 @@
+import os.path
 import sys
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import QApplication
@@ -21,10 +22,12 @@ class MyFlaskApp:
 
 
     def __init__(self, port: int):
-        self.flask_app = Flask(__name__, template_folder='static/html')
+        template_folder = os.path.abspath('static/html')
+        print(f"template_folder: {template_folder}")
+        self.flask_app = Flask(__name__, template_folder=template_folder)
         self.flask_app.config['SECRET_KEY'] = 'mysecret'
         self.flask_app.config['TEMPLATES_AUTO_RELOAD'] = True
-        self.socketio = SocketIO(self.flask_app)
+        self.socketio = SocketIO(self.flask_app, async_mode='threading')
         self.callbacks = {}
         self.thread = self.FlaskThread(socketio=self.socketio, flask_app=self.flask_app, port=port)
 
