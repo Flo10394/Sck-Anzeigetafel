@@ -8,7 +8,7 @@ from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtCore import pyqtSignal as QSignal
 from PyQt5.QtCore import QSize, QPoint, Qt
 from PyQt5.QtGui import QScreen, QPixmap, QPalette, QBrush, QIcon
-from PyQt5.QtWidgets import QApplication, QGraphicsScene, QGraphicsPixmapItem, QLabel, QWidget, QFileDialog
+from PyQt5.QtWidgets import QApplication, QGraphicsScene, QGraphicsPixmapItem, QLabel, QWidget, QFileDialog, QLineEdit, QColorDialog
 
 from ui.generated_display import Ui_Display
 from ui.generated_control import Ui_ControlWindow
@@ -29,17 +29,19 @@ class AppData:
             self.home = "static/wappen_sck.png"
             self.guest = "static/wappen_jechtingen.jpg"
 
-
-    def __init__(self):
+    def __init__(self, outer):
         self.display = self.Display()
         self.emblem = self.Emblem()
-        self.background_image = "static/background.jpg"
+        self.background_image = "static/background_2.jpg"
+        self.time_pos = QPoint(outer.display_window.label_time.x(), outer.display_window.label_time.y())
+        self.text_color = "white"
 
 
 class AppDataHandler:
     DEFAULT_APP_DATA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "app_data.pkl"))
 
-    def __init__(self, app_data_path: str or None = None):
+    def __init__(self, main_window, app_data_path: str or None = None):
+        self.main_window = main_window
         if app_data_path is None:
             self.app_data_path = self.DEFAULT_APP_DATA_PATH
         else:
@@ -51,7 +53,7 @@ class AppDataHandler:
         self._load_app_data()
 
     def _create_default_app_data(self):
-        default_app_data = AppData()
+        default_app_data = AppData(self.main_window)
         with open(self.app_data_path, "wb") as f:
             pickle.dump(default_app_data, f)
 
@@ -114,11 +116,11 @@ class WorkerTime(QtCore.QRunnable):
 
     def handle_auto_stop(self):
         if self.is_second_half:
-            if self.seconds_elapsed >= 90*60:
+            if self.seconds_elapsed >= 90 * 60:
                 print("Auto stop second half")
                 self.pause()
         else:
-            if self.seconds_elapsed >= 45*60:
+            if self.seconds_elapsed >= 45 * 60:
                 print("Auto stop first half")
                 self.pause()
                 self.is_second_half = True
@@ -136,20 +138,23 @@ class WorkerTime(QtCore.QRunnable):
                 pass
 
 
-
-
 class DisplayWindow(QWidget, Ui_Display):
 
-    def __init__(self, screen: QScreen, app_data_handler: AppDataHandler):
+    def __init__(self, screen: QScreen):
         super().__init__()
         self.setupUi(self)
+        self.screen = screen
+
+        self.text_items = [self.label_spielstand_heim,
+                           self.label_spielstand_gast,
+                           self.label_time]
+
+        self.emblem_items = [self.graphic_wappen_gast,
+                             self.graphic_wappen_heim]
+
+    def init(self, app_data_handler: AppDataHandler):
         self.app_data_handler: AppDataHandler = app_data_handler
         self.app_data: AppData = self.app_data_handler.app_data
-        self.screen: QScreen = screen
-
-        # constants
-        self.background_color = "black"
-        self.text_color = "white"
 
         # get original position and width data
         self.graphic_wappen_heim_geometry = self.graphic_wappen_heim.geometry()
@@ -164,6 +169,7 @@ class DisplayWindow(QWidget, Ui_Display):
                 function(path)
 
         self.set_background_image(self.app_data.background_image)
+        self.set_time_pos()
 
     def window_position_changed(self):
         self.move(QPoint(self.app_data.display.x, self.app_data.display.y))
@@ -172,22 +178,29 @@ class DisplayWindow(QWidget, Ui_Display):
         self.setWindowFlags(self.windowFlags() | Qt.FramelessWindowHint)  # no window title
         self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)  # always on top
 
-        text_properties = [self.label_spielstand_heim,
-                           self.label_spielstand_gast,
-                           self.label_time,
-                           self.label_spielstand_doppelpunkt,
-                           self.graphic_wappen_gast,
-                           self.graphic_wappen_heim]
+        [self._set_text_properties(item=item) for item in self.text_items]
+        [self._set_emblem_properties(item=item) for item in self.emblem_items]
 
-        [self._set_item_properties(item=item) for item in text_properties]
-
-    def _set_item_properties(self, item):
+    def _set_text_properties(self, item):
         stylesheet = f"""
             background: transparent;
-            color: {self.text_color};
+            color: {self.app_data.text_color};
         """
 
         item.setStyleSheet(stylesheet)
+
+    def _set_emblem_properties(self, item):
+        stylesheet = f"""
+            background: transparent;
+        """
+
+        item.setStyleSheet(stylesheet)
+
+    def set_text_color(self):
+        [self._set_text_properties(item=item) for item in self.text_items]
+
+    def set_time_pos(self):
+        self.label_time.move(self.app_data.time_pos)
 
     def set_background_image(self, path: str):
         background_path = os.path.abspath(path)
@@ -233,16 +246,16 @@ class MainControlWindow(QtWidgets.QMainWindow, Ui_ControlWindow):
         self.application = application
         self.parsed_args = parsed_args
         self.is_exe = is_exe()
+        self.display_window = DisplayWindow(screen=self.application.primaryScreen())
 
-        self.app_data_handler: AppDataHandler = AppDataHandler()
+        self.app_data_handler: AppDataHandler = AppDataHandler(main_window=self)
         self.app_data: AppData = self.app_data_handler.app_data
         self.init_from_app_data()
 
         self.setWindowIcon(QIcon('static/wappen_sck.ico'))
 
         # objects
-        self.display_window = DisplayWindow(app_data_handler=self.app_data_handler,
-                                            screen=self.application.primaryScreen())
+        self.display_window.init(app_data_handler=self.app_data_handler)
 
         self.display_window.show()
 
@@ -270,11 +283,22 @@ class MainControlWindow(QtWidgets.QMainWindow, Ui_ControlWindow):
 
         self.button_select_background.pressed.connect(self.button_select_background_clicked)
 
+        self.line_edit_score_home.textChanged.connect(self.line_edit_score_home_changed)
+        self.line_edit_score_guest.textChanged.connect(self.line_edit_score_guest_changed)
+
+        self.line_edit_display_time_pos_x.textChanged.connect(self.time_pos_changed_x)
+        self.line_edit_display_time_pos_y.textChanged.connect(self.time_pos_changed_y)
+
+        self.button_select_text_color.pressed.connect(self.button_text_color_clicked)
+
         self.display_position_edited()
 
     def init_from_app_data(self):
         self.line_edit_display_pos_x.setText(str(self.app_data_handler.app_data.display.x))
         self.line_edit_display_pos_y.setText(str(self.app_data_handler.app_data.display.y))
+
+        self.line_edit_display_time_pos_x.setText(str(self.app_data.time_pos.x()))
+        self.line_edit_display_time_pos_y.setText(str(self.app_data.time_pos.y()))
 
     # CALLBACK FUNCTIONS #
 
@@ -287,8 +311,8 @@ class MainControlWindow(QtWidgets.QMainWindow, Ui_ControlWindow):
         except:
             pass
 
-    def _handle_score_click(self, item: QLabel, is_plus: bool):
-        score = int(item.text())
+    def _handle_score_click(self, item_display: QLabel, item_control: QLabel, is_plus: bool):
+        score = int(item_display.text())
         if is_plus:
             score += 1
         else:
@@ -296,14 +320,50 @@ class MainControlWindow(QtWidgets.QMainWindow, Ui_ControlWindow):
 
         score = max(score, 0)
 
-        item.setText(str(score))
+        item_display.setText(str(score))
+        item_control.setText(str(score))
 
     def button_score_home_clicked(self, is_plus: bool):
-        self._handle_score_click(item=self.display_window.label_spielstand_heim, is_plus=is_plus)
+        self._handle_score_click(item_display=self.display_window.label_spielstand_heim, item_control=self.line_edit_score_home, is_plus=is_plus)
 
     def button_score_guest_clicked(self, is_plus: bool):
-        self._handle_score_click(item=self.display_window.label_spielstand_gast, is_plus=is_plus)
+        self._handle_score_click(item_display=self.display_window.label_spielstand_gast, item_control=self.line_edit_score_guest, is_plus=is_plus)
 
+    def time_pos_changed_x(self):
+        try:
+            self.app_data.time_pos.setX(int(self.line_edit_display_time_pos_x.text()))
+            self.app_data_handler.store_app_data()
+            self.display_window.set_time_pos()
+        except:
+            pass
+
+    def time_pos_changed_y(self):
+        try:
+            self.app_data.time_pos.setY(int(self.line_edit_display_time_pos_y.text()))
+            self.app_data_handler.store_app_data()
+            self.display_window.set_time_pos()
+        except:
+            pass
+
+    def button_text_color_clicked(self):
+        color = QColorDialog.getColor()
+        print(f"Set Text color {color.name()}")
+        self.app_data.text_color = color.name()
+        self.app_data_handler.store_app_data()
+        self.display_window.set_text_color()
+
+    def _handle_line_edit_score_changed(self, line_edit: QLineEdit, label: QLabel):
+        try:
+            score = int(line_edit.text())
+            label.setText(str(score))
+        except:
+            pass
+
+    def line_edit_score_home_changed(self):
+        self._handle_line_edit_score_changed(line_edit=self.line_edit_score_home, label=self.display_window.label_spielstand_heim)
+
+    def line_edit_score_guest_changed(self):
+        self._handle_line_edit_score_changed(line_edit=self.line_edit_score_guest, label=self.display_window.label_spielstand_gast)
 
     def button_select_emblem_home_clicked(self):
         file_path = self.openFileDialog()
@@ -311,7 +371,6 @@ class MainControlWindow(QtWidgets.QMainWindow, Ui_ControlWindow):
             self.app_data.emblem.home = file_path
             self.display_window.set_home_image(image_path=self.app_data.emblem.home)
             self.app_data_handler.store_app_data()
-
 
     def button_select_emblem_guest_clicked(self):
         file_path = self.openFileDialog()
@@ -332,13 +391,11 @@ class MainControlWindow(QtWidgets.QMainWindow, Ui_ControlWindow):
         seconds = int(self.line_edit_time_manual_seconds.text())
         self.worker_time.set_elapsed_time(minutes=minutes, seconds=seconds)
 
-
     def openFileDialog(self):
         options = QFileDialog.Options()
         options |= QFileDialog.ReadOnly
         file_path, _ = QFileDialog.getOpenFileName(self, "Bilddatei auswählen", "", "All Files (*);", options=options)
         return file_path
-
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         self.display_window.close()

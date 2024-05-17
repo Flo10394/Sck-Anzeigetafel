@@ -9,7 +9,7 @@ site_packages = os.path.join(os.path.dirname(python_interpreter), "..", "Lib", "
 block_cipher = None
 
 
-added_files = [('static/background.jpg', './static'), ('static/wappen_sck.png', './static') ]
+added_files = [('static/background.jpg', './static'), ('static/background_2.jpg', './static'), ('static/wappen_sck.png', './static') ]
 added_binaries = [ ]
 
 a = Analysis(
@@ -34,7 +34,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='sck_screen_tool',
+    name='sck_anzeigetafel',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

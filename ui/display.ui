@@ -10,7 +10,7 @@
     <x>0</x>
     <y>0</y>
     <width>192</width>
-    <height>128</height>
+    <height>100</height>
    </rect>
   </property>
   <property name="maximumSize">
@@ -30,8 +30,8 @@
     <rect>
      <x>10</x>
      <y>10</y>
-     <width>50</width>
-     <height>50</height>
+     <width>45</width>
+     <height>45</height>
     </rect>
    </property>
    <property name="sizePolicy">
@@ -64,10 +64,10 @@
   <widget class="QLabel" name="label_spielstand_gast">
    <property name="geometry">
     <rect>
-     <x>130</x>
-     <y>70</y>
-     <width>51</width>
-     <height>21</height>
+     <x>137</x>
+     <y>60</y>
+     <width>45</width>
+     <height>30</height>
     </rect>
    </property>
    <property name="sizePolicy">
@@ -78,7 +78,7 @@
    </property>
    <property name="font">
     <font>
-     <pointsize>16</pointsize>
+     <pointsize>20</pointsize>
     </font>
    </property>
    <property name="text">
@@ -91,10 +91,10 @@
   <widget class="QGraphicsView" name="graphic_wappen_gast">
    <property name="geometry">
     <rect>
-     <x>130</x>
+     <x>137</x>
      <y>10</y>
-     <width>50</width>
-     <height>50</height>
+     <width>45</width>
+     <height>45</height>
     </rect>
    </property>
    <property name="sizePolicy">
@@ -124,42 +124,12 @@
     <enum>QFrame::NoFrame</enum>
    </property>
   </widget>
-  <widget class="QLabel" name="label_spielstand_doppelpunkt">
-   <property name="geometry">
-    <rect>
-     <x>60</x>
-     <y>70</y>
-     <width>71</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="sizePolicy">
-    <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-     <horstretch>0</horstretch>
-     <verstretch>0</verstretch>
-    </sizepolicy>
-   </property>
-   <property name="font">
-    <font>
-     <pointsize>16</pointsize>
-    </font>
-   </property>
-   <property name="lineWidth">
-    <number>0</number>
-   </property>
-   <property name="text">
-    <string>:</string>
-   </property>
-   <property name="alignment">
-    <set>Qt::AlignCenter</set>
-   </property>
-  </widget>
   <widget class="QLabel" name="label_time">
    <property name="geometry">
     <rect>
-     <x>10</x>
-     <y>102</y>
-     <width>171</width>
+     <x>60</x>
+     <y>0</y>
+     <width>74</width>
      <height>20</height>
     </rect>
    </property>
@@ -171,7 +141,7 @@
    </property>
    <property name="font">
     <font>
-     <pointsize>12</pointsize>
+     <pointsize>11</pointsize>
     </font>
    </property>
    <property name="text">
@@ -185,9 +155,9 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>70</y>
-     <width>51</width>
-     <height>21</height>
+     <y>60</y>
+     <width>45</width>
+     <height>30</height>
     </rect>
    </property>
    <property name="sizePolicy">
@@ -198,7 +168,7 @@
    </property>
    <property name="font">
     <font>
-     <pointsize>16</pointsize>
+     <pointsize>20</pointsize>
     </font>
    </property>
    <property name="text">
