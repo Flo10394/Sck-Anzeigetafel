@@ -12,6 +12,7 @@ from PyQt5.QtWidgets import QApplication, QGraphicsScene, QGraphicsPixmapItem, Q
 
 from ui.generated_display import Ui_Display
 from ui.generated_control import Ui_ControlWindow
+from webserver import MyFlaskApp
 
 
 def is_exe():
@@ -35,6 +36,7 @@ class AppData:
         self.background_image = "static/background_2.jpg"
         self.time_pos = QPoint(outer.display_window.label_time.x(), outer.display_window.label_time.y())
         self.text_color = "white"
+        self.webserver_port = 5000
 
 
 class AppDataHandler:
@@ -253,6 +255,16 @@ class MainControlWindow(QtWidgets.QMainWindow, Ui_ControlWindow):
         self.app_data: AppData = self.app_data_handler.app_data
         self.init_from_app_data()
 
+        self.worker_time = WorkerTime(time_label=self.display_window.label_time, signals=self.worker_time_signals)
+        self.webserver = MyFlaskApp(port=self.app_data.webserver_port)
+        self.webserver.register_callback("goal_home_plus", lambda: self.button_score_home_clicked(True))
+        self.webserver.register_callback("goal_home_minus", lambda: self.button_score_home_clicked(False))
+        self.webserver.register_callback("goal_guest_plus", lambda: self.button_score_guest_clicked(True))
+        self.webserver.register_callback("goal_guest_minus", lambda: self.button_score_guest_clicked(False))
+        self.webserver.register_callback("time_start", self.worker_time.resume)
+        self.webserver.register_callback("time_pause", self.worker_time.pause)
+        self.webserver.register_callback("time_reset", self.worker_time.reset)
+
         self.setWindowIcon(QIcon('static/wappen_sck.ico'))
 
         # objects
@@ -262,8 +274,8 @@ class MainControlWindow(QtWidgets.QMainWindow, Ui_ControlWindow):
 
         # threads
         self.threadPool = QtCore.QThreadPool()
-        self.worker_time = WorkerTime(time_label=self.display_window.label_time, signals=self.worker_time_signals)
         self.threadPool.start(self.worker_time)
+        self.threadPool.start(self.webserver.thread)
 
         for item in [self.line_edit_display_pos_x, self.line_edit_display_pos_y]:
             item.textChanged.connect(self.display_position_edited)

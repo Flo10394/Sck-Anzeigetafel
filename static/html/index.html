@@ -2,12 +2,25 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>SCK Anzeigetafelllll</title>
+    <title>SCK Anzeigetafel</title>
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
 </head>
 <body>
-    <h1>SCK Anzeigetafellllll</h1>
-    <button onclick="sendMessage()">Send Message</button>
+    <h1>SCK Anzeigetafel</h1>
+    <h2>Tor Heim</h2>
+    <button onclick="sendMessage('goal_home_plus')"> + </button>
+    <button onclick="sendMessage('goal_home_minus')"> - </button>
+
+    <h2>Tor Gast</h2>
+    <button onclick="sendMessage('goal_guest_plus')"> + </button>
+    <button onclick="sendMessage('goal_guest_minus')"> - </button>
+
+    <h2>Zeit</h2>
+    <button onclick="sendMessage('time_start')">Start</button>
+    <button onclick="sendMessage('time_pause')">Pause</button>
+    <button onclick="sendMessage('time_reset')">Reset</button>
+
+
     <script>
         const socket = io();
 
@@ -19,8 +32,9 @@
             console.log('Message from server:', msg);
         });
 
-        function sendMessage() {
-            socket.send('Hello from mobile');
+        function sendMessage(message) {
+            console.log(message);
+            socket.send(message);
         }
     </script>
 </body>
