@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SCK Anzeigetafelllll</title>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>SCK Anzeigetafellllll</h1>
+    <button onclick="sendMessage()">Send Message</button>
+    <script>
+        const socket = io();
+
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('message', (msg) => {
+            console.log('Message from server:', msg);
+        });
+
+        function sendMessage() {
+            socket.send('Hello from mobile');
+        }
+    </script>
+</body>
+</html>

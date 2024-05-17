@@ -138,6 +138,7 @@ class WorkerTime(QtCore.QRunnable):
                 pass
 
 
+
 class DisplayWindow(QWidget, Ui_Display):
 
     def __init__(self, screen: QScreen):
